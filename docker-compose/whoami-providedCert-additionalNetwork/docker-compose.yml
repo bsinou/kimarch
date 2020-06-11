@@ -1,0 +1,88 @@
+# Test user define networks
+# Dashboard: 
+# - dashboard.example.com
+# - login: admin | admin 
+# - secured via Let's Encrypt 
+# Server (whoami) 
+# - cells.example.com
+# - provided certs in default store
+
+# Do not forget to prepare / reset acme.json file when changing the LE config,
+# typically at first start or when switching from staging to prd CA server:
+# touch acme.json; chmod 600 acme.json
+
+
+version: "3.7"
+
+networks:
+  dmz:
+    external: true
+  internal:
+    external: false
+
+services:
+  reverse:
+    image: traefik:v2.2.1
+    command:
+      # More logs when debugging
+      - --log.level=DEBUG
+      # Tell traefik to watch docker events for hot reload
+      - --providers.docker
+      # Add a file provider to declare user provided certificates
+      #- --providers.file.filename=/etc/traefik/config.yml
+      - --providers.file.directory=/providers
+      # Enable the dashboard on https
+      - --api
+      # Listen default HTTP ports
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      # Automatic generation of certificate with Let's Encrypt: we use this to generate a LE cert for the dashboard
+      - --certificatesresolvers.leresolver.acme.email=tls@example.com
+      - --certificatesresolvers.leresolver.acme.storage=/acme.json
+      - --certificatesresolvers.leresolver.acme.tlschallenge=true
+      # Insure to use staging CA server while testing to avoid being black listed => generated cert is un-trusted by browsers. Comment out once everything is correctly configured. 
+      - --certificatesresolvers.leresolver.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Add a file provider to declare provided certificates
+      - ./certs.yml:/providers/certs.yml:ro
+      # Mount a folder that contains the user provided certificates
+      - ./certs:/etc/traefik/certs
+      # Persists certificate locally, otherwise we will recreate new ones at each restarts and quickly hit limits.
+      # Remember to flush the file if you want to switch from staging CA server to prod
+      - ./acme.json:/acme.json
+    labels:
+      # Redirect HTTP traffic to HTTPS
+      - traefik.http.routers.redirs.rule=hostregexp(`{host:.+}`)
+      - traefik.http.routers.redirs.entrypoints=web
+      - traefik.http.routers.redirs.middlewares=redirect-to-https
+      - traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https
+      # Expose the traefik dashboard on a dedicated subdomain with HTTPS provided by a LE cert.
+      - traefik.http.routers.reverse.rule=Host(`dashboard.example.com`)
+      - traefik.http.routers.reverse.service=api@internal
+      - traefik.http.routers.reverse.tls.certresolver=leresolver
+      - traefik.http.routers.reverse.entrypoints=websecure
+      # Protect dashboard with simple auth => log with admin / admin for this example
+      - traefik.http.routers.reverse.middlewares=admin
+      # Password is generated with `htpasswd -nb admin admin` beware to escape all '$' replacing them by '$$'
+      - "traefik.http.middlewares.admin.basicauth.users=admin:$$apr1$$KnKvATsN$$L8K.P.maCu4zR/rVzD8h0/"
+    networks:
+      - dmz
+
+
+  my-app:
+    image: containous/whoami:v1.3.0
+    command:
+      # It tells whoami to start listening on 8082 instead of 80
+      - --port=8082
+    labels:
+      - traefik.http.routers.my-app.rule=Host(`cells.example.com`)
+      - traefik.http.services.my-app.loadbalancer.server.port=8082
+      - traefik.http.routers.my-app.entrypoints=websecure
+      - traefik.http.routers.my-app.tls=true
+      #- traefik.http.routers.my-app.tls.certresolver=leresolver
+    networks:
+      - dmz

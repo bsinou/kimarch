@@ -1,0 +1,6 @@
+tls:
+  certificates:
+    - certFile: /etc/traefik/certs/cells.example.com.crt
+      keyFile: /etc/traefik/certs/cells.example.com.key
+      stores:
+        - default
