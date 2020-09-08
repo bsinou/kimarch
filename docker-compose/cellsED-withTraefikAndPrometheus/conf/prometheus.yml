@@ -1,0 +1,12 @@
+# Simple prometheus configuration that watches itself and the entry points declared by cells:
+scrape_configs:
+  # The job name is added as a label `job=<job_name>` to any timeseries scraped from this config.
+  - job_name: 'prometheus'
+    metrics_path: '/prometheus/metrics'
+    # scheme defaults to 'http'.
+    static_configs:
+    - targets: ['localhost:9090']
+  - job_name: 'cells'
+    file_sd_configs:
+      - files:
+        - /etc/prometheus/watch/prom_clients.json
