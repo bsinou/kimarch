@@ -1,0 +1,18 @@
+version: '3.7'
+
+volumes:
+    caddy_data: {}
+    caddy_config: {}
+
+services:
+    # Traefik as reverse proxy with dashboard enabled at ${PUBLIC_FQDN}/dashboard/ (trailing slash is important).
+    reverse:
+        image:  caddy:2-alpine
+        ports: ["80:80", "8083:8083", "443:443", "2019:2019"]
+        restart: unless-stopped
+        volumes:
+            - $PWD/conf/Caddyfile:/etc/caddy/Caddyfile
+            - $PWD/site:/var/www/
+            - caddy_data:/data
+            - caddy_config:/config
+        

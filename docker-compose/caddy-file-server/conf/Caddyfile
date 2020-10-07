@@ -1,0 +1,11 @@
+:80 {
+    route /files* {
+        reverse_proxy reverse:8083
+    }
+
+}
+
+:8083 {
+    root * /var/www
+    file_server /files/images* browse
+}
