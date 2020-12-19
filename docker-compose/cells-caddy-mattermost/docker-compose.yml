@@ -1,0 +1,136 @@
+version: '3.7'
+
+volumes:
+    certs: {}
+    caddy_config: {}
+    caddy_data: {}
+    cells_logs: {}
+    cells_working_dir: {}
+    mm_data: {}
+    mysql_data: {}
+    mysql_data_2: {}
+    prom_data: {}
+
+services:
+    # Caddy v2 reverse proxy with Let's Encrypt certificates  
+    reverse:
+        image:  caddy:2-alpine
+        ports: ["${PROXY_PORT}:443"]
+        restart: unless-stopped
+        volumes:
+            - ./conf/Caddyfile:/etc/caddy/Caddyfile
+            - certs:/var/certs
+            - cells_logs:/var/www/logs
+            - caddy_data:/data
+            - caddy_config:/config
+        environment:
+            - CADDYPATH=/var/certs
+            - PUBLIC_FQDN=${PUBLIC_FQDN}
+            - ADMIN_PWD=${SYSADMIN_PASSWORD}
+
+    # Generate self signed certificates for both Caddy and Cells
+    certs:
+        image:  bsinou/mkcert:latest
+        volumes:
+            - certs:/var/certs
+        environment:
+            - DOMAINS=${PUBLIC_FQDN},cells
+
+    # MySQL image with a default DB
+    mysql:
+        image: mysql:8.0.21
+        #image: mysql:5.7
+        volumes:
+            - mysql_data:/var/lib/mysql
+        environment:
+            - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PWD}
+            - MYSQL_DATABASE=cells_${BOX_NAME}
+            - MYSQL_USER=${MYSQL_APP_USER_LOGIN}
+            - MYSQL_PASSWORD=${MYSQL_APP_USER_PWD}
+        cap_add:  # see: https://github.com/docker-library/mysql/issues/422
+            - SYS_NICE  # CAP_SYS_NICE
+        command: [mysqld, --character-set-server=utf8mb4, --collation-server=utf8mb4_unicode_ci, --default_authentication_plugin=mysql_native_password]
+
+    # Rather see: https://dzone.com/articles/multiple-mysql-databases-with-one-mysql-container
+
+    mysql2:
+        image: mysql:8.0.21
+        #image: mysql:5.7
+        restart: unless-stopped
+        volumes:
+            - mysql_data_2:/var/lib/mysql
+        environment:
+            - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PWD}
+            - MYSQL_DATABASE=mm_${BOX_NAME}
+            - MYSQL_USER=${MYSQL_APP_USER_LOGIN}
+            - MYSQL_PASSWORD=${MYSQL_APP_USER_PWD}
+        cap_add:  # see: https://github.com/docker-library/mysql/issues/422
+            - SYS_NICE  # CAP_SYS_NICE
+        command: [mysqld, --character-set-server=utf8mb4, --collation-server=utf8mb4_unicode_ci, --default_authentication_plugin=mysql_native_password]
+
+
+    # the Pydio Cells service
+    cells:
+        image: ${CELLS_DOCKER_IMAGE}
+        restart: unless-stopped
+        expose: [8080]
+        volumes: 
+            - ${VAR_DIR}/${BOX_NAME}/bin:/usr/local/bin
+            - cells_logs:/var/cells/logs
+            - cells_working_dir:/var/cells
+            - ./conf/pydio-license:/var/cells/pydio-license:ro
+            - ./conf/install-conf.yaml:/var/cells/install-conf.yaml:ro
+        environment:
+            - CELLS_INSTALL_YAML=/var/cells/install-conf.yaml
+            - CELLS_BIND=${PUBLIC_FQDN}:8080
+            - CELLS_EXTERNAL=https://${PUBLIC_FQDN}
+            - CELLS_ADMIN_PASSWORD=${CELLS_ADMIN_PASSWORD}
+            - MYSQL_DB_NAME=cells_${BOX_NAME}
+            - MYSQL_USER_LOGIN=${MYSQL_APP_USER_LOGIN}
+            - MYSQL_USER_PWD=${MYSQL_APP_USER_PWD}
+            - CELLS_LOGS_LEVEL=production
+            - CELLS_ENABLE_METRICS=true
+        depends_on:
+            - mysql
+    
+    mattermost:
+        image: ${MM_DOCKER_IMAGE}
+        restart: unless-stopped
+        expose: [8000]
+        volumes:
+            - mm_data:/mattermost:rw
+            - /etc/localtime:/etc/localtime:ro
+        environment:
+            - MM_USERNAME=${MYSQL_APP_USER_LOGIN}
+            - MM_PASSWORD=${MYSQL_APP_USER_PWD}
+            - MM_DBNAME=mm_${BOX_NAME}
+            - MM_SERVICESETTINGS_SITEURL=https://${PUBLIC_FQDN}/chat
+            - DB_HOST=mysql2
+            - DB_PORT_NUMBER=3306
+            - MM_SQLSETTINGS_DRIVERNAME=mysql
+            - MM_SQLSETTINGS_DATASOURCE=${MYSQL_APP_USER_LOGIN}:${MYSQL_APP_USER_PWD}@tcp(mysql2:3306)/mm_${BOX_NAME}?charset=utf8mb4,utf8&readTimeout=30s&writeTimeout=30s
+
+    # Prometheus to expose metrics
+    prometheus:
+        image: prom/prometheus
+        restart: unless-stopped
+        expose: [9090]
+        volumes: 
+            - prom_data:/prometheus       
+            - ./conf/prometheus.yml:/etc/prometheus/prometheus.yml
+        command: 
+            - --config.file=/etc/prometheus/prometheus.yml
+            - --storage.tsdb.path=/prometheus 
+            - --storage.tsdb.retention.time=30d 
+            - --web.external-url=https://${PUBLIC_FQDN}/prometheus
+
+    cadvisor:
+        image: gcr.io/google-containers/cadvisor:latest
+        expose: [8080]
+        volumes:
+            - /:/rootfs:ro
+            - /var/run:/var/run:rw
+            - /sys:/sys:ro
+            - /var/lib/docker/:/var/lib/docker:ro
+        command:
+            - --url_base_prefix=/cadvisor

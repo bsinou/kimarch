@@ -1,0 +1,13 @@
+# The proxy config is defined via env variables in the docker compose file
+
+# Main Admin
+frontendlogin: admin
+frontendpassword: {$CELLS_ADMIN_PWD}
+
+# DB connection info
+dbconnectiontype: tcp
+dbtcphostname: mysql
+dbtcpport: 3306
+dbtcpname: {$MYSQL_DB_NAME}
+dbtcpuser: {$MYSQL_USER_LOGIN}
+dbtcppassword: {$MYSQL_USER_PWD}

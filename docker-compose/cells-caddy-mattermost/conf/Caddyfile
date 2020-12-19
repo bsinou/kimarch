@@ -1,0 +1,40 @@
+:443 {
+
+    tls /var/certs/{$PUBLIC_FQDN}.pem /var/certs/{$PUBLIC_FQDN}-key.pem  
+    
+    route /chat* {
+        reverse_proxy mattermost:8000
+    }
+
+    route /prometheus* {
+        reverse_proxy prometheus:9090
+    }
+
+    route /cadvisor* {
+        reverse_proxy cadvisor:8080
+    }
+
+    route /logs* {
+        reverse_proxy reverse:8083
+    }
+
+    @protected {
+        path /prometheus* /logs* /cadvisor*
+    }
+
+    basicauth @protected {
+		admin {$ADMIN_PWD}
+	}
+
+    reverse_proxy cells:8080 {
+        transport http {
+            tls
+            tls_insecure_skip_verify
+        }
+    }
+}
+
+:8083 {
+    root * /var/www
+    file_server  browse
+}
