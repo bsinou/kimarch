@@ -1,1 +1,5 @@
 docker-compose/cells-traefikTls/.env
+docker-compose/cells-caddy-mattermost/env-tmp
+docker-compose/cells-caddy-mattermost/conf/pydio-license
+docker-compose/cells-caddy-mattermost/env-template
+docker-compose/cells-caddy-mattermost/conf/init-db.sql
