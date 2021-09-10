@@ -1,0 +1,22 @@
+export BOX_NAME="with-loki"
+export CELLS_DOCKER_IMAGE="pydio/cells:latest"
+
+export HOST_SSH_FQDN=myhost.example.com
+export HOST_SSH_PORT=22
+export HOST_SSH_USER=root
+
+export PUBLIC_FQDN=myhost.example.com
+export HOST_RUNNING_USER=pydio
+export HOST_INSTALL_DIR=/var/cells
+
+
+# admin / admin to protect technical info. Hashed with "caddy hash-password" command 
+export SYSADMIN_USER=admin
+export SYSADMIN_PASSWORD=JDJhJDE0JFA4OE9kbm9PVmdoT1pEMFIvTVpQTy5rTEt5UDNlcWdYRXFYZ3JkSWZuWXdiQVVwTTI4QWh5
+export SYSADMIN_MAIL=admin@example.com
+
+export MYSQL_ROOT_PASSWORD=cells
+export MYSQL_PYDIO_USER_LOGIN=pydio
+export MYSQL_PYDIO_USER_PASSWORD=cells
+
+export CELLS_ADMIN_PASSWORD=admin

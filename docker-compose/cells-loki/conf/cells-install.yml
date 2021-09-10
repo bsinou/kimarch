@@ -1,0 +1,21 @@
+# Multiple site: one is always up and the other can only be reached during "live time"
+proxyconfigs:
+  - binds:
+      - 0.0.0.0:8080
+    reverseproxyurl: https://{$INSTALL_MAIN_FQDN}
+
+frontendlogin: admin
+dbconnectiontype: tcp
+dbtcphostname: mysql
+dbtcpport: 3306
+dbtcpuser: pydio
+# Defined in .env file and passed by the docker image as env variables
+# My specific DB
+dbtcpname: {$INSTALL_DB_NAME}
+frontendpassword: {$INSTALL_FRONTEND_ADMIN_PWD}
+dbtcppassword: {$INSTALL_DB_PYDIO_PWD}
+
+## Custom configuration for demo specific features
+customconfigs:
+  # Custom title
+  frontend/plugin/core.pydio/APPLICATION_TITLE: Test Cells With Loki

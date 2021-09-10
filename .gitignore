@@ -3,3 +3,5 @@ docker-compose/cells-caddy-mattermost/env-tmp
 docker-compose/cells-caddy-mattermost/conf/pydio-license
 docker-compose/cells-caddy-mattermost/env-template
 docker-compose/cells-caddy-mattermost/conf/init-db.sql
+docker-compose/cells-loki/env-tmp
+docker-compose/cells-loki/env

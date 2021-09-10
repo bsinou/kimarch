@@ -1,0 +1,22 @@
+{$PUBLIC_FQDN} {
+
+    tls {$ADMIN_MAIL}
+
+    route /logs* {
+        reverse_proxy loki:3100
+    }
+
+    route /promtail* {
+        reverse_proxy promtail:9080
+    }
+  
+    @protected {
+        path /logs* /promtail* 
+    }
+
+    basicauth @protected {
+		admin {$ADMIN_PWD}
+	}
+
+    reverse_proxy http://cells:8080 
+}

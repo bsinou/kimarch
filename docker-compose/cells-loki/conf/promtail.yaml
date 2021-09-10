@@ -1,0 +1,29 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+  http_path_prefix: /promtail/
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/logs/loki/api/v1/push
+
+scrape_configs:
+  # Exposes various default Linux log files 
+  - job_name: system
+    static_configs:
+    - targets:
+        - localhost
+      labels:
+        job: varlogs
+        __path__: /var/log/*log
+
+  # Scraps the logs of all docker images that run on the host
+  - job_name: dockerhost
+    pipeline_stages: []
+    static_configs:
+    - labels:
+        job: docker
+        host: ${HOSTNAME:no-name} # WARNING: this is the hostname of the docker container, see docker compose
+        __path__: /var/log/docker/*/*-json.log

@@ -1,0 +1,88 @@
+version: '3.7'
+
+volumes:
+    # TODO rather use a local FS volume to avoid hitting LE rate limit too soon
+    caddy_data: {}
+    caddy_config: {}
+    mysql_data: {}
+    cells_logs: {}
+    cells_working_dir: {}
+
+services:
+    
+    ## CORE SERVICES
+    # Caddy v2 reverse proxy that is after TLS termination
+    reverse:
+        hostname: reverse
+        image:  caddy:2-alpine
+        ports: ["80:80", "443:443"]
+        restart: unless-stopped
+        volumes:
+            - ./conf/Caddyfile:/etc/caddy/Caddyfile
+            - caddy_data:/data
+            - caddy_config:/config
+        environment:
+            - PUBLIC_FQDN=${PUBLIC_FQDN}
+            - ADMIN_USER=${SYSADMIN_USER}
+            - ADMIN_PWD=${SYSADMIN_PASSWORD}
+            - ADMIN_MAIL=${SYSADMIN_MAIL}
+    
+    # MySQL image with a default DB
+    mysql:
+        image: mysql:8
+        restart: unless-stopped
+        volumes:
+            - mysql_data:/var/lib/mysql
+        environment:
+            - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+            - MYSQL_DATABASE=cells
+            - MYSQL_USER=${MYSQL_PYDIO_USER_LOGIN}
+            - MYSQL_PASSWORD=${MYSQL_PYDIO_USER_PASSWORD}
+        cap_add:  # see: https://github.com/docker-library/mysql/issues/422
+            - SYS_NICE  # CAP_SYS_NICE
+        command: [mysqld, --character-set-server=utf8mb4, --collation-server=utf8mb4_unicode_ci, --default_authentication_plugin=mysql_native_password]
+
+    # the Pydio Cells services
+    cells:
+        image: ${CELLS_DOCKER_IMAGE}
+        restart: unless-stopped
+        expose: [8080]
+        volumes: 
+            - cells_logs:/var/cells/logs
+            - cells_working_dir:/var/cells
+            - ./conf/cells-install.yml:/var/cells/install-conf.yml:ro
+        environment:
+            # Yaml install template 
+            - CELLS_INSTALL_YAML=/var/cells/install-conf.yml
+            # Corresponding install only environment variable 
+            - INSTALL_DB_NAME=cells
+            - INSTALL_FRONTEND_ADMIN_PWD=${CELLS_ADMIN_PASSWORD}
+            - INSTALL_DB_PYDIO_PWD=${MYSQL_PYDIO_USER_PASSWORD}
+            - INSTALL_MAIN_FQDN=${PUBLIC_FQDN}
+            # Runtime ENVs
+            - CELLS_LOG=info
+            - CELLS_EXPOSE_DEMO_COUNTER=true
+        depends_on:
+            - mysql
+
+    ## MONITORING: Loki and Promtail to manage logs
+    loki:
+        image: grafana/loki:2.3.0
+        expose: [3100, 9100]
+        command: -config.file=/etc/loki/config.yaml
+        volumes:
+            - ./conf/loki.yaml:/etc/loki/config.yaml
+
+    promtail:
+        hostname: ${PUBLIC_FQDN}
+        image: grafana/promtail:2.3.0
+        expose: [9080]
+        volumes:
+            - /var/log:/var/log
+            - /var/lib/docker/containers:/var/log/docker
+            - ./conf/promtail.yaml:/etc/promtail/config.yaml
+        command: 
+            - -config.file=/etc/promtail/config.yaml
+            - -config.expand-env
+
+
