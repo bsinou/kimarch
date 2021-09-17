@@ -30,6 +30,7 @@ echo "... Generated .env file:"
 # Generate custom .env file
 tee ./env-tmp << EOF
 
+HOST_INSTALL_DIR=${HOST_INSTALL_DIR}
 BOX_NAME=${BOX_NAME}
 CELLS_DOCKER_IMAGE=${CELLS_DOCKER_IMAGE}
 PUBLIC_FQDN=${PUBLIC_FQDN}
@@ -44,7 +45,6 @@ CELLS_ADMIN_PASSWORD=${CELLS_ADMIN_PASSWORD}
 
 EOF
 
-echo "" 
 echo "... End of generated .env file" 
 echo "" 
 

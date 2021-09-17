@@ -19,6 +19,7 @@ services:
         restart: unless-stopped
         volumes:
             - ./conf/Caddyfile:/etc/caddy/Caddyfile
+            - ${HOST_INSTALL_DIR}/certs/${BOX_NAME}:/data/caddy/certificates
             - caddy_data:/data
             - caddy_config:/config
         environment:
@@ -61,7 +62,7 @@ services:
             - INSTALL_MAIN_FQDN=${PUBLIC_FQDN}
             # Runtime ENVs
             - CELLS_LOG=info
-            - CELLS_EXPOSE_DEMO_COUNTER=true
+            - CELLS_NO_TLS=true
         depends_on:
             - mysql
 
